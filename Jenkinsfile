@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKERHUB_CREDS = credentials('dockerhub-cred')
-        DOCKERHUB_USER  = 'YOURDOCKERHUBUSERNAME'
+        DOCKERHUB_USER  = 'nareshhh'
         IMAGE_NAME      = "${DOCKERHUB_USER}/flask-app"
         IMAGE_TAG       = "${BUILD_NUMBER}"
     }
@@ -12,7 +12,7 @@ pipeline {
         stage('1 - Clone Repository') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/YOURGITHUBUSERNAME/flask-k8s-app.git'
+                    url: 'https://github.com/nare-shh/flask-k8s-app.git'
                 echo "Code cloned successfully"
             }
         }
