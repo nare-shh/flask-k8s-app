@@ -1,70 +1,36 @@
 pipeline {
     agent any
-
-    environment {
-        DOCKERHUB_CREDS = credentials('dockerhub-cred')
-        DOCKERHUB_USER  = 'nareshhh'
-        IMAGE_NAME      = "${DOCKERHUB_USER}/flask-app"
-        IMAGE_TAG       = "${BUILD_NUMBER}"
-    }
-
     stages {
-        stage('1 - Clone Repository') {
+        stage('Clone') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/nare-shh/flask-k8s-app.git'
-                echo "Code cloned successfully"
+                git branch: 'main', url: 'https://github.com/nare-shh/flask-k8s-app.git'
             }
         }
-
-        stage('2 - Build Docker Image') {
+        stage('Build Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
-                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
-                echo "Docker image built"
+                sh 'docker build -f Dockerfile.healthcare -t healthcare-app:latest . || docker build -t healthcare-app:latest .'
             }
         }
-
-        stage('3 - Push to DockerHub') {
+        stage('Stop Old') {
             steps {
-                sh """
-                    echo ${DOCKERHUB_CREDS_PSW} | docker login -u ${DOCKERHUB_CREDS_USR} --password-stdin
-                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
-                    docker push ${IMAGE_NAME}:latest
-                """
-                echo "Image pushed to DockerHub"
+                sh 'docker stop healthcare-app || true'
+                sh 'docker rm healthcare-app || true'
             }
         }
-
-        stage('4 - Deploy to Kubernetes') {
+        stage('Deploy') {
             steps {
-                sh """
-                    sed -i 's|YOURDOCKERHUBUSERNAME/flask-app:latest|${IMAGE_NAME}:${IMAGE_TAG}|g' k8s/deployment.yaml
-                    kubectl apply -f k8s/deployment.yaml
-                    kubectl rollout status deployment/flask-app --timeout=120s
-                """
-                echo "Deployed to Kubernetes"
+                sh 'docker run -d --name healthcare-app -p 5000:5000 healthcare-app:latest'
             }
         }
-
-        stage('5 - Verify') {
+        stage('Verify') {
             steps {
-                sh "kubectl get pods -l app=flask-app"
-                sh "kubectl get svc flask-service"
+                sh 'docker ps | grep healthcare'
+                sh 'curl -s http://localhost:5000/health'
             }
         }
     }
-
     post {
-        success {
-            echo "SUCCESS! Pipeline completed"
-        }
-        failure {
-            echo "FAILED. Check logs above"
-        }
-        always {
-            sh "docker logout"
-            sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true"
-        }
+        success { echo 'Healthcare app deployed successfully!' }
+        failure { echo 'Deployment failed. Check logs.' }
     }
 }
